@@ -21,6 +21,8 @@ let pending = 0;
 let batch_i = 0;
 let opsEMA=0, startTime, batchOps;
 let running=true;
+let enviro=false; // Environment is off by default
+let enviroTest=false;
 let inspectIdx = 0;
 let mouseXY = [0,0];
 
@@ -37,8 +39,14 @@ function playPause() {
         scheduleBatch();
     }    
 }
-
 $('#playPause').onclick = playPause;
+
+// Toggle environment
+function toggleEnvironment() {
+    enviroTest = !enviroTest;
+    $('#toggleEnvironment').innerText = enviroTest ? "e off" : "e on";
+}
+$('#toggleEnvironment').onclick = toggleEnvironment;
 
 document.addEventListener('keydown', function(event) {
     if (event.key === ' ' || event.code === 'Space') { 
@@ -68,6 +76,7 @@ function updateNoise() {
 }
 updateNoise();
 $('#noise').addEventListener("input", updateNoise);
+
 
 
 function scheduleBatch() {
