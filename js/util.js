@@ -42,9 +42,9 @@ export function prepareWASM(instance) {
 
     // Helper function to get region data
     objects.getRegionData = (x, y) => {
-        if (x >= 0 && x < 4 && y >= 0 && y < 4) {
-            const index = y * 4 + x;
-            const start = index * 8;
+        if (x >= 0 && x < 8 && y >= 0 && y < 8) {
+            const index = y * 8 + x;
+            const start = index * 8; // was originally 8 (4 * 2), may need to adjust
             return {
                 mutation_multiplier: objects.regions_data[start],
                 directional_influence: [

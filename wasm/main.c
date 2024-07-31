@@ -38,7 +38,7 @@ int get_soup_height() {
 void initialize_regions() {
     for (int i = 0; i < REGION_COUNT; ++i) {
         global_regions[i].mutation_multiplier = 1.0f;
-        for (int j = 0; j < 4; ++j) {
+        for (int j = 0; j < 8; ++j) { // updated for 8x8
             global_regions[i].directional_influence[j] = 1.0f;
         }
         global_regions[i].impassable = 0;
@@ -70,6 +70,11 @@ void mutate(int n) {
         int region_index = region_y * 8 + region_x; // Adjusted for 8x8
 
         if (global_regions[region_index].impassable) continue; 
+
+        if (rand64() % (int)(10 / global_regions[region_index].mutation_multiplier) == 0) {
+            soup[index] = v;
+        }
+        
     }
 }
 // void mutate(int n) {

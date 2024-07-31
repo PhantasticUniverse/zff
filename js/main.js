@@ -26,8 +26,8 @@ let mouseXY = [0,0];
 function createRegionGrid() {
     const regionGrid = document.getElementById('regionGrid');
     regionGrid.innerHTML = ''; // Clear existing grid
-    for (let y = 0; y < 4; y++) {
-        for (let x = 0; x < 4; x++) {
+    for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
             const region = document.createElement('div');
             region.classList.add('region');
             region.id = `region-${x}-${y}`;
@@ -41,8 +41,8 @@ function createRegionGrid() {
 
 function updateRegionGrid() {
     if (!main) return; // Exit if main is not initialized
-    for (let y = 0; y < 4; y++) {
-        for (let x = 0; x < 4; x++) {
+    for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
             const region = document.getElementById(`region-${x}-${y}`);
             if (!region) continue; // Skip if element doesn't exist
             const regionData = main.getRegionData(x, y);
