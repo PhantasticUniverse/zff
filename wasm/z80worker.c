@@ -1,5 +1,5 @@
+#define Z80WORKER
 #include "../external/z80.h"
-
 #include "common.h"
 
 #ifdef WASM
@@ -10,7 +10,13 @@ int fprintf(FILE *stream, const char *format, ...) {return 0;}
 enum { PAIR_LENGTH = TAPE_LENGTH * 2 };
 
 BUFFER(batch, uint8_t, MAX_BATCH_PAIR_N * PAIR_LENGTH);
-BUFFER(write_count, int, MAX_BATCH_PAIR_N);
+BUFFER(write_count, int, MAX_BATCH_PAIR_N * 2);
+
+// Add this function to z80worker.c if it's not already there
+WASM_EXPORT("get_tape_len")
+int get_tape_len() {
+    return TAPE_LENGTH;
+}
 
 typedef struct context_t context_t;
 struct context_t {
@@ -56,7 +62,6 @@ WASM_EXPORT("run") int run(int pair_n, int step_n) {
     return totalOps;
 }
 
-
 enum{ MAX_STEP_N = 128 };
 
 int trace_step;
@@ -82,7 +87,7 @@ WASM_EXPORT("z80_trace") void _z80_trace(int step_n) {
     cpu->read_byte = traceRead;
     cpu->write_byte = traceWrite;
     for (int i=0; i<PAIR_LENGTH*MAX_STEP_N*4; ++i) {
-        trace_vis[i] = ((i&3) == 3) ? 255 : 0;//i&3 == 0 ? 255 : 0;
+        trace_vis[i] = ((i&3) == 3) ? 255 : 0;
     }
     for (trace_step=0; trace_step<step_n; ++trace_step) {
         z80_step(cpu);    

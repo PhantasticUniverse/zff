@@ -57,6 +57,44 @@ body {
     z-index: 10;
 }
 
+.region-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 50px);
+    gap: 2px;
+    width: fit-content;
+    margin: 10px;
+}
+.region {
+    width: 50px;
+    height: 50px;
+    background-color: #ddd;
+    cursor: pointer;
+    position: relative;
+}
+.region:hover {
+    border: 2px solid white;
+}
+.region-tooltip {
+    visibility: hidden;
+    width: 200px;
+    background-color: #555;
+    color: #fff;
+    text-align: left;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    top: 100%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+.region:hover .region-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
 </style>
 <div style="display: flex;">
     <div>
@@ -77,6 +115,10 @@ body {
         Colormap
         <div id="matrix" class="matrix"></div>
         <pre id="stat"></pre>
+    </div>
+    <div>
+        <h3>Regions</h3>
+        <div id="regionGrid" class="region-grid"></div>
     </div>
 </div>
 
