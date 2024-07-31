@@ -67,7 +67,7 @@ void mutate(int n) {
         int y = (index / TAPE_LENGTH) / GRID_WIDTH;
         int region_x = x / REGION_WIDTH;
         int region_y = y / REGION_HEIGHT;
-        int region_index = region_y * 4 + region_x;
+        int region_index = region_y * 8 + region_x; // Adjusted for 8x8
 
         if (global_regions[region_index].impassable) continue; 
     }
@@ -105,7 +105,7 @@ int prepare_batch() {
         int y = i / GRID_WIDTH;
         int region_x = x / REGION_WIDTH;
         int region_y = y / REGION_HEIGHT;
-        int region_index = region_y * 4 + region_x;
+        int region_index = region_y * 8 + region_x; // adjusted for 8x8
 
         if (global_regions[region_index].impassable) {
             ++collision_count;
@@ -181,16 +181,16 @@ void updateCounts() {
 }
 
 void set_region_mutation_multiplier(int region_x, int region_y, float multiplier) {
-    if (region_x >= 0 && region_x < 4 && region_y >= 0 && region_y < 4) {
-        int index = region_y * 4 + region_x;
+    if (region_x >= 0 && region_x < 8 && region_y >= 0 && region_y < 8) {
+        int index = region_y * 8 + region_x; // adjusted for 8x8
         global_regions[index].mutation_multiplier = multiplier;
         regions_data[index].mutation_multiplier = multiplier;
     }
 }
 
 void set_region_directional_influence(int region_x, int region_y, float up, float down, float left, float right) {
-    if (region_x >= 0 && region_x < 4 && region_y >= 0 && region_y < 4) {
-        int index = region_y * 4 + region_x;
+    if (region_x >= 0 && region_x < 8 && region_y >= 0 && region_y < 8) {
+        int index = region_y * 8 + region_x; // adjusted for 8x8
         global_regions[index].directional_influence[0] = up;
         global_regions[index].directional_influence[1] = down;
         global_regions[index].directional_influence[2] = left;
@@ -200,8 +200,8 @@ void set_region_directional_influence(int region_x, int region_y, float up, floa
 }
 
 void set_region_impassable(int region_x, int region_y, uint8_t impassable) {
-    if (region_x >= 0 && region_x < 4 && region_y >= 0 && region_y < 4) {
-        int index = region_y * 4 + region_x;
+    if (region_x >= 0 && region_x < 8 && region_y >= 0 && region_y < 8) {
+        int index = region_y * 8 + region_x; // adjusted for 8x8
         global_regions[index].impassable = impassable;
         regions_data[index].impassable = impassable;
     }

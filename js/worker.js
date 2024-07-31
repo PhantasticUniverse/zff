@@ -2,8 +2,8 @@ import { prepareWASM } from "./util.js";
 
 const GRID_WIDTH = 200;
 const GRID_HEIGHT = 200;
-const REGION_WIDTH = GRID_WIDTH / 4;
-const REGION_HEIGHT = GRID_HEIGHT / 4;
+const REGION_WIDTH = GRID_WIDTH / 8; // Adjusted for 8x8
+const REGION_HEIGHT = GRID_HEIGHT / 8;
 
 async function initWASM() {
     const wasm = await WebAssembly.instantiateStreaming(fetch('../wasm/z80worker.wasm'));
@@ -34,8 +34,8 @@ self.onmessage = async e => {
         const regionX = Math.floor(x / REGION_WIDTH);
         const regionY = Math.floor(y / REGION_HEIGHT);
 
-        const regionIndex = regionY * 4 + regionX;
-        const regionStart = regionIndex * 8;
+        const regionIndex = regionY * 8 + regionX; // adjusted for 8x8
+        const regionStart = regionIndex * 8; // was already 8, may need to change
         const mutationMultiplier = regions_data[regionStart];
         const directionalInfluence = regions_data.slice(regionStart + 1, regionStart + 5);
         const impassable = regions_data[regionStart + 5] !== 0;

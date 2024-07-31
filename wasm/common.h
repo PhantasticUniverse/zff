@@ -15,9 +15,12 @@
 
 #define GRID_WIDTH 200
 #define GRID_HEIGHT 200
-#define REGION_WIDTH (GRID_WIDTH / 4)
-#define REGION_HEIGHT (GRID_HEIGHT / 4)
-#define REGION_COUNT 16  // 4x4 grid of regions
+#define REGION_WIDTH (GRID_WIDTH / 8)
+#define REGION_HEIGHT (GRID_HEIGHT / 8)
+#define REGION_COUNT 64  // 8x8 grid of regions
+// #define REGION_WIDTH (GRID_WIDTH / 4)
+// #define REGION_HEIGHT (GRID_HEIGHT / 4)
+// #define REGION_COUNT 16  // 4x4 grid of regions
 
 enum {
     TAPE_LENGTH = 16, // must be 2 ** N
