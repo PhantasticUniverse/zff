@@ -24,6 +24,12 @@ let running=true;
 let inspectIdx = 0;
 let mouseXY = [0,0];
 
+let regionGridSize;
+
+// Add these constants near the top of the file, after the other constant declarations
+const MIN_REGION_GRID_SIZE = 4;
+const MAX_REGION_GRID_SIZE = 16;
+
 function requestReset() {
     needReset = true;
     console.log('reset');
@@ -32,7 +38,7 @@ $('#reset').onclick = requestReset;
 
 function playPause() {
     running = !running;
-    $('#playPause').innerText = running ? "pause" : "play";
+    $('#playPause').innerText = running ? "Pause" : "Play";
     if (running) {
         scheduleBatch();
     }    
@@ -48,18 +54,21 @@ document.addEventListener('keydown', function(event) {
 
 const clip = (v,a,b)=>Math.max(a, Math.min(v, b));
 
-$('#c').addEventListener('mousemove', e=>{
-    const {width, height} = $('#c');
-    const soup_w = main.get_soup_width();
-    const soup_h = main.get_soup_height();
-    mouseXY = [e.offsetX/width, e.offsetY/height];
-    const x = clip(Math.floor(mouseXY[0]*soup_w), 0, soup_w-1);
-    const y = clip(Math.floor(mouseXY[1]*soup_h), 0, soup_h-1);
-    inspectIdx = y*soup_w+x;
-    const p = inspectIdx*16;
-    z80.batch.set(main.soup.slice(p, p+32));
-    z80.z80_trace(128);
-});
+// Move the mousemove event listener setup into a function
+function setupMouseListener() {
+    $('#c').addEventListener('mousemove', e => {
+        const {width, height} = $('#c');
+        const soup_w = main.get_soup_width();
+        const soup_h = main.get_soup_height();
+        mouseXY = [e.offsetX/width, e.offsetY/height];
+        const x = clip(Math.floor(mouseXY[0]*soup_w), 0, soup_w-1);
+        const y = clip(Math.floor(mouseXY[1]*soup_h), 0, soup_h-1);
+        inspectIdx = y*soup_w+x;
+        const p = inspectIdx*16;
+        z80.batch.set(main.soup.slice(p, p+32));
+        z80.z80_trace(128);
+    });
+}
 
 function updateNoise() {
     const v = 2**$('#noise').value;
@@ -238,6 +247,15 @@ async function run() {
     self.main = main = prepareWASM(mainWasm.instance);
     self.z80 = z80 = prepareWASM(z80Wasm.instance);
 
+    // Ensure main is initialized before using it
+    if (!main || !main.get_soup_width) {
+        console.error("WASM module not properly initialized");
+        return;
+    }
+
+    // Now that main is initialized, set up the mouse listener
+    setupMouseListener();
+
     for (let i=0; i<256; ++i) {
         let v = 64+i/8;//128+i/4;
         set_color(i, v, v, v);
@@ -264,8 +282,262 @@ async function run() {
     updateColormap();
 
     tape_len = main.get_tape_len();
+    regionGridSize = main.get_region_grid_size();
+    console.log("Region Grid Size:", regionGridSize);
+
+    // Add this check
+    if (regionGridSize < MIN_REGION_GRID_SIZE || regionGridSize > MAX_REGION_GRID_SIZE) {
+        regionGridSize = MIN_REGION_GRID_SIZE;
+    }
+
+    // Initialize the region grid
+    main.init_region_grid(regionGridSize);
+
+    createRegionGridUI();
+    drawRegionGrid();
     scheduleBatch();
+
+    // Add these lines after initializing the WASM module
+    self.main.set_region_temperature = main.set_region_temperature;
+    self.main.set_region_energy = main.set_region_energy;
+    self.main.set_region_randomness = main.set_region_randomness;
+    self.main.set_region_directional_influence = main.set_region_directional_influence;
+
+    // Call this function after the DOM is loaded
+    setupRegionControls();
 }
+
+// Update this function to handle both toggling and selection
+function createRegionGridUI() {
+    const container = document.createElement('div');
+    container.id = 'regionGridContainer';
+    container.style.position = 'absolute';
+    container.style.top = '0';
+    container.style.left = '0';
+    container.style.width = '800px';
+    container.style.height = '800px';
+    container.style.pointerEvents = 'none';
+    container.style.zIndex = '10';
+
+    const canvasContainer = document.getElementById('canvasContainer');
+    canvasContainer.appendChild(container);
+
+    const sizeSelect = document.getElementById('regionGridSize');
+    // Add options to the select element
+    for (let size = MIN_REGION_GRID_SIZE; size <= MAX_REGION_GRID_SIZE; size *= 2) {
+        const option = document.createElement('option');
+        option.value = size;
+        option.textContent = `${size}x${size}`;
+        sizeSelect.appendChild(option);
+    }
+    sizeSelect.value = regionGridSize; // Set initial value
+
+    sizeSelect.addEventListener('change', (e) => {
+        const newSize = parseInt(e.target.value);
+        main.init_region_grid(newSize);
+        regionGridSize = newSize;
+        recreateRegionGridUI();
+        drawRegionGrid();
+        
+        console.log(`Region grid size changed to ${newSize}x${newSize}`);
+    });
+
+    // Initialize the grid with the default size
+    recreateRegionGridUI();
+    drawRegionGrid();
+}
+
+function recreateRegionGridUI() {
+    const container = document.getElementById('regionGridContainer');
+    container.innerHTML = '';
+
+    const cellWidth = 800 / SOUP_WIDTH;
+    const cellHeight = 800 / SOUP_HEIGHT;
+
+    for (let y = 0; y < regionGridSize; y++) {
+        for (let x = 0; x < regionGridSize; x++) {
+            const cell = document.createElement('div');
+            cell.id = `region_${x}_${y}`;
+            cell.style.position = 'absolute';
+            cell.style.width = `${cellWidth * (SOUP_WIDTH / regionGridSize)}px`;
+            cell.style.height = `${cellHeight * (SOUP_HEIGHT / regionGridSize)}px`;
+            cell.style.left = `${x * cellWidth * (SOUP_WIDTH / regionGridSize)}px`;
+            cell.style.top = `${y * cellHeight * (SOUP_HEIGHT / regionGridSize)}px`;
+            cell.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+            cell.style.boxSizing = 'border-box';
+            cell.style.pointerEvents = 'auto';
+            cell.onclick = (event) => {
+                if (event.shiftKey) {
+                    toggleRegionObstacle(x, y);
+                } else {
+                    toggleRegionSelection(x, y);
+                }
+                drawRegionGrid();
+                event.stopPropagation();
+            };
+            container.appendChild(cell);
+        }
+    }
+
+    // Add click event listener to deselect all cells when clicking outside
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('#regionGridContainer')) {
+            deselectAllRegions();
+        }
+    });
+}
+
+// Add these constants at the top of the file
+const SOUP_WIDTH = 200;
+const SOUP_HEIGHT = 200;
+
+function drawRegionGrid() {
+    for (let y = 0; y < regionGridSize; y++) {
+        for (let x = 0; x < regionGridSize; x++) {
+            const cell = document.getElementById(`region_${x}_${y}`);
+            const isObstacle = main.get_region_obstacle(x, y);
+            const isSelected = cell.classList.contains('selected');
+            
+            if (isObstacle) {
+                cell.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'; // Changed to black with 70% opacity
+            } else if (isSelected) {
+                cell.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
+            } else {
+                cell.style.backgroundColor = 'transparent';
+            }
+
+            // Add visual indicators for region parameters
+            const temperature = main.get_region_temperature(x, y);
+            const energy = main.get_region_energy(x, y);
+            const randomness = main.get_region_randomness(x, y);
+            
+            cell.textContent = '';
+            if (temperature !== 1) cell.textContent += 'T';
+            if (energy !== 1) cell.textContent += 'E';
+            if (randomness !== 0) cell.textContent += 'R';
+
+            // Add directional arrows for influence
+            const directions = ['↑', '→', '↓', '←'];
+            for (let i = 0; i < 4; i++) {
+                if (main.get_region_directional_influence(x, y, i) > 0) {
+                    cell.textContent += directions[i];
+                }
+            }
+        }
+    }
+}
+
+function toggleRegionObstacle(x, y) {
+    const currentState = main.get_region_obstacle(x, y);
+    main.set_region_obstacle(x, y, !currentState);
+    console.log(`Toggled obstacle for region (${x},${y}) to ${!currentState}`);
+}
+
+function toggleRegionSelection(x, y) {
+    const cell = document.getElementById(`region_${x}_${y}`);
+    cell.classList.toggle('selected');
+    updateControlValues();
+    console.log(`Toggled selection for region (${x},${y})`);
+}
+
+function deselectAllRegions() {
+    const cells = document.querySelectorAll('#regionGridContainer div');
+    cells.forEach(cell => cell.classList.remove('selected'));
+    updateControlValues();
+}
+
+function updateControlValues() {
+    const selectedRegions = getSelectedRegions();
+    if (selectedRegions.length > 0) {
+        const [x, y] = selectedRegions[0];
+        document.getElementById('temperatureSlider').value = main.get_region_temperature(x, y);
+        document.getElementById('energySlider').value = main.get_region_energy(x, y);
+        document.getElementById('randomnessSlider').value = main.get_region_randomness(x, y);
+        updateSliderLabels();
+    }
+}
+
+function getSelectedRegions() {
+    const selected = [];
+    for (let y = 0; y < regionGridSize; y++) {
+        for (let x = 0; x < regionGridSize; x++) {
+            const cell = document.getElementById(`region_${x}_${y}`);
+            if (cell.classList.contains('selected')) {
+                selected.push([x, y]);
+            }
+        }
+    }
+    return selected;
+}
+
+function setupRegionControls() {
+    const sliders = ['temperature', 'energy', 'randomness'];
+    sliders.forEach(param => {
+        const slider = document.getElementById(`${param}Slider`);
+        slider.addEventListener('input', () => {
+            updateSliderLabels();
+            updateSelectedRegions(param, parseFloat(slider.value));
+        });
+    });
+
+    const directions = ['north', 'east', 'south', 'west'];
+    directions.forEach((dir, index) => {
+        document.getElementById(`${dir}Btn`).addEventListener('click', () => {
+            toggleDirectionalInfluence(index);
+        });
+    });
+
+    // Add event listener for the obstacle button
+    document.getElementById('obstacleBtn').addEventListener('click', toggleObstacle);
+
+    updateSliderLabels();
+}
+
+function updateSliderLabels() {
+    ['temperature', 'energy', 'randomness'].forEach(param => {
+        const slider = document.getElementById(`${param}Slider`);
+        const value = document.getElementById(`${param}Value`);
+        value.textContent = slider.value;
+    });
+}
+
+function updateSelectedRegions(param, value) {
+    const selectedRegions = getSelectedRegions();
+    selectedRegions.forEach(([x, y]) => {
+        switch (param) {
+            case 'temperature':
+                main.set_region_temperature(x, y, value);
+                break;
+            case 'energy':
+                main.set_region_energy(x, y, value);
+                break;
+            case 'randomness':
+                main.set_region_randomness(x, y, value);
+                break;
+        }
+    });
+    drawRegionGrid();
+}
+
+function toggleDirectionalInfluence(direction) {
+    const selectedRegions = getSelectedRegions();
+    selectedRegions.forEach(([x, y]) => {
+        const currentValue = main.get_region_directional_influence(x, y, direction);
+        const newValue = currentValue > 0 ? 0 : 1;
+        main.set_region_directional_influence(x, y, direction, newValue);
+    });
+    drawRegionGrid();
+}
+
+function toggleObstacle() {
+    const selectedRegions = getSelectedRegions();
+    selectedRegions.forEach(([x, y]) => {
+        const currentState = main.get_region_obstacle(x, y);
+        main.set_region_obstacle(x, y, !currentState);
+    });
+    drawRegionGrid();
+}
+
 run();
 
 const cmap_jyrki = [

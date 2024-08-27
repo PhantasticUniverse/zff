@@ -7,6 +7,55 @@
 body {
     background-color: #444;
     color: #8e8;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    display: flex;
+    gap: 20px;
+}
+
+.left-column {
+    flex: 0 0 auto;
+}
+
+.right-column {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+#canvasContainer {
+    position: relative;
+    width: 800px;
+    height: 800px;
+}
+
+#regionGridContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#regionGridContainer div {
+    position: absolute;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-sizing: border-box;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .matrix {
@@ -14,9 +63,9 @@ body {
     grid-template-columns: repeat(16, 16px);
     gap: 2px;
     width: fit-content;
-    overflow:visible;
-    margin: 10px 10px;
+    margin-top: 10px;
 }
+
 .square {
     width: 16px;
     height: 16px;
@@ -24,11 +73,11 @@ body {
     cursor: pointer;
     position: relative;
 }
+
 .square:hover {
-    /* background-color: #bbb; */
-    border: white 1px;
-    border-style: solid;
+    border: 1px solid white;
 }
+
 .tooltip {
     visibility: hidden;
     width: 120px;
@@ -39,12 +88,13 @@ body {
     padding: 5px;
     position: absolute;
     z-index: 1;
-    top: 20px;
+    bottom: 125%;
     left: 50%;
     margin-left: -60px;
     opacity: 0;
     transition: opacity 0.3s;
 }
+
 .square:hover .tooltip {
     visibility: visible;
     opacity: 1;
@@ -54,32 +104,98 @@ body {
     position: absolute;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
     display: none;
-    z-index: 10;
+    z-index: 20;
 }
 
+label {
+    display: inline-block;
+    margin-right: 10px;
+}
+
+input, select, button {
+    margin-right: 10px;
+}
+
+#stat {
+    margin-top: 20px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.controls-container {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+}
+.left-controls, .right-controls {
+    flex: 1;
+}
 </style>
-<div style="display: flex;">
-    <div>
-        <canvas id="c" width="800" height="800" style="width: 800px; height: 800px;"></canvas>
+<div class="container">
+    <div class="left-column">
+        <div id="canvasContainer">
+            <canvas id="c" width="800" height="800" style="width: 800px; height: 800px;"></canvas>
+            <!-- The region grid will be inserted here by JavaScript -->
+        </div>
+        <div class="controls-container">
+            <div class="left-controls">
+                <div>
+                    <label for="regionGridSize">Grid Size:</label>
+                    <select id="regionGridSize"></select>
+                </div>
+                <div>
+                    <label for="noise">Noise: <span id="noiseLabel">*</span></label>
+                    <input type="range" id="noise" min="0" max="10" value="4">
+                </div>
+                <div>
+                    <label for="seed">Seed:</label>
+                    <input type="number" id="seed" value="6">
+                    <button id="reset">Reset</button>
+                </div>
+                <div>
+                    <button id="playPause">Pause</button>
+                </div>
+            </div>
+            <div class="right-controls" id="regionControls">
+                <h3>Region Controls</h3>
+                <div>
+                    <label for="temperatureSlider">Temperature:</label>
+                    <input type="range" id="temperatureSlider" min="0" max="2" step="0.1" value="1">
+                    <span id="temperatureValue">1.0</span>
+                </div>
+                <div>
+                    <label for="energySlider">Energy Level:</label>
+                    <input type="range" id="energySlider" min="0" max="2" step="0.1" value="1">
+                    <span id="energyValue">1.0</span>
+                </div>
+                <div>
+                    <label for="randomnessSlider">Randomness:</label>
+                    <input type="range" id="randomnessSlider" min="0" max="1" step="0.1" value="0">
+                    <span id="randomnessValue">0.0</span>
+                </div>
+                <div>
+                    <label>Directional Influence:</label>
+                    <button id="northBtn">↑</button>
+                    <button id="eastBtn">→</button>
+                    <button id="southBtn">↓</button>
+                    <button id="westBtn">←</button>
+                </div>
+                <div>
+                    <button id="obstacleBtn">Toggle Obstacle</button>
+                </div>
+            </div>
+        </div>
         <p>
-            <label for="noise">Noise: <span id="noiseLabel">*</span></label> 
-            <input type="range" id="noise" min="0" max="10" value="4"> <br>
-            
-            <label for="seed">Seed:</label>
-            <input type="number" id="seed" value="6">
-            <button id="reset">Reset</button> To try:<br>
+            To try:<br>
             6 - black replicator at ~6k steps, ldir at ~10k<br>
-            7 - replicators are quick to appear, different end state<br>
-            <button id="playPause">pause</button>
+            7 - replicators are quick to appear, different end state
         </p>
     </div>
-    <div style="margin-left: 10px;">
-        Colormap
+    <div class="right-column">
+        <h3>Colormap</h3>
         <div id="matrix" class="matrix"></div>
         <pre id="stat"></pre>
     </div>
 </div>
-
 <input type="color" id="colorPicker">
-
 <script src="js/main.js" type="module"></script>
