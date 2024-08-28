@@ -38,6 +38,100 @@ let globalTemperature = 1.0;
 let globalEnergy = 1.0;
 let globalRandomness = 0.0;
 
+// Add these variables near the top of the file
+let brushSize = 1;
+let brushParameter = 'temperature';
+let brushValue = 1.0;
+let isPainting = false;
+let brushDebounceTimer;
+
+// Add these variables near the top of the file with other global variables
+let isBrushActive = false;
+let brushCursor;
+
+// Add this variable at the top of your file with other global variables
+let lastToggledX = -1;
+let lastToggledY = -1;
+
+// Add this function to create and set up the brush cursor
+function setupBrushCursor() {
+    brushCursor = document.createElement('div');
+    brushCursor.id = 'brushCursor';
+    document.body.appendChild(brushCursor);
+
+    const regionGridContainer = document.getElementById('regionGridContainer');
+    regionGridContainer.addEventListener('mousemove', updateBrushCursor);
+    regionGridContainer.addEventListener('mouseleave', () => {
+        brushCursor.style.display = 'none';
+    });
+}
+
+// Add this function to update the brush cursor position and size
+function updateBrushCursor(event) {
+    if (!isBrushActive) return;
+
+    const rect = event.target.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    brushCursor.style.left = `${event.clientX - brushSize * 5}px`;
+    brushCursor.style.top = `${event.clientY - brushSize * 5}px`;
+    brushCursor.style.width = `${brushSize * 10}px`;
+    brushCursor.style.height = `${brushSize * 10}px`;
+    brushCursor.style.display = 'block';
+}
+
+// Modify the setupBrushControls function to include the toggle button
+function setupBrushControls() {
+    const brushSizeInput = document.getElementById('brushSize');
+    const brushSizeValue = document.getElementById('brushSizeValue');
+    const brushParameterSelect = document.getElementById('brushParameter');
+    const brushValueInput = document.getElementById('brushValue');
+    const brushValueDisplay = document.getElementById('brushValueDisplay');
+
+    brushSizeInput.addEventListener('input', () => {
+        brushSize = parseInt(brushSizeInput.value);
+        brushSizeValue.textContent = brushSize;
+    });
+
+    brushParameterSelect.addEventListener('change', () => {
+        brushParameter = brushParameterSelect.value;
+        updateBrushValueRange();
+    });
+
+    brushValueInput.addEventListener('input', () => {
+        brushValue = parseFloat(brushValueInput.value);
+        brushValueDisplay.textContent = brushValue.toFixed(1);
+    });
+
+    updateBrushValueRange();
+
+    const toggleBrushBtn = document.getElementById('toggleBrush');
+    toggleBrushBtn.addEventListener('click', toggleBrush);
+
+    setupBrushCursor();
+}
+
+// Add this function to toggle the brush tool
+function toggleBrush() {
+    isBrushActive = !isBrushActive;
+    const toggleBrushBtn = document.getElementById('toggleBrush');
+    const regionGridContainer = document.getElementById('regionGridContainer');
+
+    if (isBrushActive) {
+        toggleBrushBtn.textContent = 'Disable Brush';
+        toggleBrushBtn.classList.add('active');
+        regionGridContainer.classList.add('brushActive');
+        brushCursor.style.display = 'block';
+        deselectAllRegions();
+    } else {
+        toggleBrushBtn.textContent = 'Enable Brush';
+        toggleBrushBtn.classList.remove('active');
+        regionGridContainer.classList.remove('brushActive');
+        brushCursor.style.display = 'none';
+    }
+}
+
 function requestReset() {
     needReset = true;
     console.log('reset');
@@ -268,6 +362,118 @@ function set_color(i, r, g, b) {
     colormap.set([r,g,b,255], i*4);
 }
 
+function updateBrushValueRange() {
+    const brushValueInput = document.getElementById('brushValue');
+    const brushValueDisplay = document.getElementById('brushValueDisplay');
+    const brushValueContainer = document.getElementById('brushValueContainer');
+
+    if (brushParameter === 'obstacle') {
+        brushValueContainer.style.display = 'none';
+    } else {
+        brushValueContainer.style.display = 'block';
+        brushValueInput.min = 0;
+        brushValueInput.max = 2;
+        brushValueInput.step = 0.1;
+        brushValueInput.value = brushValue;
+        brushValueDisplay.textContent = brushValue.toFixed(1);
+    }
+}
+
+// Modify the recreateRegionGridUI function
+function recreateRegionGridUI() {
+    const container = document.getElementById('regionGridContainer');
+    container.innerHTML = '';
+    const cellSize = 800 / regionGridSize; // Assuming the canvas is 800x800
+
+    for (let y = 0; y < regionGridSize; y++) {
+        for (let x = 0; x < regionGridSize; x++) {
+            const cell = document.createElement('div');
+            cell.id = `region_${x}_${y}`;
+            cell.style.width = `${cellSize}px`;
+            cell.style.height = `${cellSize}px`;
+            cell.style.left = `${x * cellSize}px`;
+            cell.style.top = `${y * cellSize}px`;
+
+            cell.addEventListener('mousedown', (event) => {
+                event.preventDefault();
+                if (isBrushActive) {
+                    isPainting = true;
+                    applyBrush(x, y);
+                } else {
+                    if (event.shiftKey) {
+                        toggleRegionObstacle(x, y);
+                    } else {
+                        toggleRegionSelection(x, y);
+                    }
+                }
+            });
+
+            cell.addEventListener('mousemove', (event) => {
+                if (isPainting && isBrushActive) {
+                    applyBrush(x, y);
+                }
+            });
+
+            container.appendChild(cell);
+        }
+    }
+
+    // Add mouseup and mouseleave events to the container
+    container.addEventListener('mouseup', () => {
+        isPainting = false;
+        lastToggledX = -1;
+        lastToggledY = -1;
+    });
+
+    container.addEventListener('mouseleave', () => {
+        isPainting = false;
+        lastToggledX = -1;
+        lastToggledY = -1;
+    });
+
+    drawRegionGrid();
+}
+
+// Modify the applyBrush function
+function applyBrush(centerX, centerY) {
+    if (!isBrushActive) return;
+
+    clearTimeout(brushDebounceTimer);
+    brushDebounceTimer = setTimeout(() => {
+        for (let y = centerY - brushSize + 1; y <= centerY + brushSize - 1; y++) {
+            for (let x = centerX - brushSize + 1; x <= centerX + brushSize - 1; x++) {
+                if (x >= 0 && x < regionGridSize && y >= 0 && y < regionGridSize) {
+                    applyParameterToRegion(x, y);
+                }
+            }
+        }
+        drawRegionGrid();
+    }, 16); // 60 fps
+}
+
+// Modify the applyParameterToRegion function
+function applyParameterToRegion(x, y) {
+    switch (brushParameter) {
+        case 'temperature':
+            main.set_region_temperature(x, y, brushValue);
+            break;
+        case 'energy':
+            main.set_region_energy(x, y, brushValue);
+            break;
+        case 'randomness':
+            main.set_region_randomness(x, y, brushValue);
+            break;
+        case 'obstacle':
+            if (x !== lastToggledX || y !== lastToggledY) {
+                const currentObstacleState = main.get_region_obstacle(x, y);
+                main.set_region_obstacle(x, y, !currentObstacleState);
+                lastToggledX = x;
+                lastToggledY = y;
+            }
+            break;
+    }
+}
+
 async function run() {
     const mainWasm = await WebAssembly.instantiateStreaming(fetch('wasm/main.wasm'));
     const z80Wasm = await WebAssembly.instantiateStreaming(fetch('wasm/z80worker.wasm'));
@@ -333,6 +539,8 @@ async function run() {
 
     // Call this function after the DOM is loaded
     setupRegionControls();
+    setupBrushControls();
+    setupBrushCursor();
 }
 
 // Update this function to handle both toggling and selection
@@ -373,46 +581,6 @@ function createRegionGridUI() {
     // Initialize the grid with the default size
     recreateRegionGridUI();
     drawRegionGrid();
-}
-
-function recreateRegionGridUI() {
-    const container = document.getElementById('regionGridContainer');
-    container.innerHTML = '';
-
-    const cellWidth = 800 / SOUP_WIDTH;
-    const cellHeight = 800 / SOUP_HEIGHT;
-
-    for (let y = 0; y < regionGridSize; y++) {
-        for (let x = 0; x < regionGridSize; x++) {
-            const cell = document.createElement('div');
-            cell.id = `region_${x}_${y}`;
-            cell.style.position = 'absolute';
-            cell.style.width = `${cellWidth * (SOUP_WIDTH / regionGridSize)}px`;
-            cell.style.height = `${cellHeight * (SOUP_HEIGHT / regionGridSize)}px`;
-            cell.style.left = `${x * cellWidth * (SOUP_WIDTH / regionGridSize)}px`;
-            cell.style.top = `${y * cellHeight * (SOUP_HEIGHT / regionGridSize)}px`;
-            cell.style.border = '1px solid rgba(255, 255, 255, 0.3)';
-            cell.style.boxSizing = 'border-box';
-            cell.style.pointerEvents = 'auto';
-            cell.onclick = (event) => {
-                if (event.shiftKey) {
-                    toggleRegionObstacle(x, y);
-                } else {
-                    toggleRegionSelection(x, y);
-                }
-                drawRegionGrid();
-                event.stopPropagation();
-            };
-            container.appendChild(cell);
-        }
-    }
-
-    // Add click event listener to deselect all cells when clicking outside
-    document.addEventListener('click', (event) => {
-        if (!event.target.closest('#regionGridContainer')) {
-            deselectAllRegions();
-        }
-    });
 }
 
 // Add these constants at the top of the file

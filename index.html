@@ -43,6 +43,10 @@ body {
     z-index: 10;
 }
 
+#regionGridContainer.brushActive {
+    cursor: none;
+}
+
 #regionGridContainer div {
     position: absolute;
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -130,6 +134,26 @@ input, select, button {
 .left-controls, .right-controls {
     flex: 1;
 }
+#brushControls {
+    margin-top: 20px;
+}
+#brushControls div {
+    margin-bottom: 10px;
+}
+
+#brushCursor {
+    position: fixed;
+    pointer-events: none;
+    z-index: 1000;
+    border: 2px solid white;
+    border-radius: 50%;
+    display: none;
+}
+
+#toggleBrush.active {
+    background-color: #4CAF50;
+    color: white;
+}
 </style>
 <div class="container">
     <div class="left-column">
@@ -188,16 +212,41 @@ input, select, button {
                 </div>
             </div>
         </div>
-        <p>
+        <!-- <p>
             To try:<br>
             6 - black replicator at ~6k steps, ldir at ~10k<br>
             7 - replicators are quick to appear, different end state
-        </p>
+        </p> -->
     </div>
     <div class="right-column">
         <h3>Colormap</h3>
         <div id="matrix" class="matrix"></div>
         <pre id="stat"></pre>
+    </div>
+</div>
+<div id="brushControls">
+    <h4>Brush Tools</h4>
+    <div>
+        <label for="brushSize">Brush Size:</label>
+        <input type="range" id="brushSize" min="1" max="5" value="1">
+        <span id="brushSizeValue">1</span>
+    </div>
+    <div>
+        <label for="brushParameter">Parameter:</label>
+        <select id="brushParameter">
+            <option value="temperature">Temperature</option>
+            <option value="energy">Energy</option>
+            <option value="randomness">Randomness</option>
+            <option value="obstacle">Obstacle</option>
+        </select>
+    </div>
+    <div id="brushValueContainer">
+        <label for="brushValue">Value:</label>
+        <input type="range" id="brushValue" min="0" max="2" step="0.1" value="1">
+        <span id="brushValueDisplay">1.0</span>
+    </div>
+    <div>
+        <button id="toggleBrush">Enable Brush</button>
     </div>
 </div>
 <input type="color" id="colorPicker">
