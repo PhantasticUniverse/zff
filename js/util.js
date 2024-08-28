@@ -1,5 +1,11 @@
 export function prepareWASM(instance) {
-    const type2class = {uint8_t: Uint8Array, int: Int32Array, uint64_t: BigUint64Array};
+    const type2class = {
+        uint8_t: Uint8Array,
+        int: Int32Array,
+        uint64_t: BigUint64Array,
+        float: Float32Array,
+        Region: Float32Array // Assuming Region is represented as a float array
+    };
     const objects = {};
     const prefix = '_len_';
     const exports = instance.exports;
@@ -13,8 +19,13 @@ export function prepareWASM(instance) {
         const [name, type] = key.slice(prefix.length).split('__');
         const ofs = exports['_get_'+name]();
         const len = exports[key]();
-        const buf = new (type2class[type])(exports.memory.buffer, ofs, len);
-        objects[name] = buf;
+        if (type2class[type]) {
+            const buf = new (type2class[type])(exports.memory.buffer, ofs, len);
+            objects[name] = buf;
+        } else {
+            console.warn(`Unknown type: ${type} for ${name}`);
+            objects[name] = null;
+        }
     }
     return objects;
 }

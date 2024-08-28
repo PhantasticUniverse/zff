@@ -1,4 +1,8 @@
+#ifndef COMMON_H
+#define COMMON_H
+
 #include <stdint.h>
+#include "region.h"
 
 #ifdef WASM
     #define WASM_EXPORT(name) __attribute__((export_name(name)))
@@ -14,3 +18,5 @@ enum {
     TAPE_LENGTH = 16, // must be 2 ** N
     MAX_BATCH_PAIR_N = 1024*8
 };
+
+#endif // COMMON_H
