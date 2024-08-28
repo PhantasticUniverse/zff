@@ -79,8 +79,8 @@ The project is built on a hybrid architecture combining WebAssembly, JavaScript,
 
 1. Clone the repository:
    ```
-   git clone (REPO LINK)
-   cd (REPO NAME)
+   git clone https://github.com/PhantasticUniverse/zff_enviro
+   cd zff_enviro
    ```
 
 2. Ensure you have the following dependencies installed:
