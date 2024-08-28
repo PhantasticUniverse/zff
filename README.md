@@ -1,3 +1,5 @@
+(Please refer to [README2.md](README2.md))
+
 # 8-bit computational substrates
 
 This repository contains the code that supplements the article https://arxiv.org/abs/2406.19108
