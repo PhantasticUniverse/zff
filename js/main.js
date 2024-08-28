@@ -30,6 +30,14 @@ let regionGridSize;
 const MIN_REGION_GRID_SIZE = 4;
 const MAX_REGION_GRID_SIZE = 16;
 
+// Add this near the top of the file with other global variables
+let useGlobalEffects = true;
+
+// Add these variables near the top of the file
+let globalTemperature = 1.0;
+let globalEnergy = 1.0;
+let globalRandomness = 0.0;
+
 function requestReset() {
     needReset = true;
     console.log('reset');
@@ -79,6 +87,7 @@ updateNoise();
 $('#noise').addEventListener("input", updateNoise);
 
 
+// Modify the scheduleBatch function
 function scheduleBatch() {
     if (!running || pending) {
         return;
@@ -92,13 +101,31 @@ function scheduleBatch() {
     startTime = Date.now();
     batchOps = 0;
     const pair_n = main.prepare_batch();
+    
+    // Update global effects in the main WASM module
+    if (useGlobalEffects) {
+        globalTemperature = main.get_global_temperature();
+        globalEnergy = main.get_global_energy();
+        globalRandomness = main.get_global_randomness();
+        main.set_global_temperature(globalTemperature);
+        main.set_global_energy(globalEnergy);
+        main.set_global_randomness(globalRandomness);
+    }
+
     const job_n = pending = workers.length;
     const chunks = Array(job_n).fill(0).map((_,i)=>Math.floor(i*pair_n/job_n));
     chunks.push(pair_n);
     for (let i=0; i<job_n; ++i) {
         const start=chunks[i], end=chunks[i+1];
-        workers[i].postMessage({batch:main.batch.slice(start*tape_len*2, end*tape_len*2),
-            ofs:start, pair_n:end-start});
+        workers[i].postMessage({
+            batch: main.batch.slice(start*tape_len*2, end*tape_len*2),
+            ofs: start,
+            pair_n: end-start,
+            useGlobalEffects,
+            globalTemperature,
+            globalEnergy,
+            globalRandomness
+        });
     }
 }
 
@@ -297,11 +324,12 @@ async function run() {
     drawRegionGrid();
     scheduleBatch();
 
-    // Add these lines after initializing the WASM module
-    self.main.set_region_temperature = main.set_region_temperature;
-    self.main.set_region_energy = main.set_region_energy;
-    self.main.set_region_randomness = main.set_region_randomness;
-    self.main.set_region_directional_influence = main.set_region_directional_influence;
+    // Add this line to set up the toggle_global_effects function
+    self.main.toggle_global_effects = main.toggle_global_effects;
+
+    // Initialize the global effects toggle button text
+    document.getElementById('toggleGlobalEffects').textContent = 
+        useGlobalEffects ? 'Disable Global Effects' : 'Enable Global Effects';
 
     // Call this function after the DOM is loaded
     setupRegionControls();
@@ -489,6 +517,14 @@ function setupRegionControls() {
 
     // Add event listener for the obstacle button
     document.getElementById('obstacleBtn').addEventListener('click', toggleObstacle);
+
+    // Add event listener for the global effects toggle button
+    document.getElementById('toggleGlobalEffects').addEventListener('click', () => {
+        useGlobalEffects = !useGlobalEffects;
+        main.toggle_global_effects(useGlobalEffects);
+        document.getElementById('toggleGlobalEffects').textContent = 
+            useGlobalEffects ? 'Disable Global Effects' : 'Enable Global Effects';
+    });
 
     updateSliderLabels();
 }

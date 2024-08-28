@@ -29,6 +29,13 @@ BUFFER(batch, uint8_t, MAX_BATCH_PAIR_N*2*TAPE_LENGTH)
 BUFFER(batch_write_count, int, MAX_BATCH_PAIR_N*2)
 BUFFER(rng_state, uint64_t, 1)
 
+static bool use_global_effects = true;
+
+// Add these global variables
+static float global_temperature = 1.0f;
+static float global_energy = 1.0f;
+static float global_randomness = 0.0f;
+
 WASM_EXPORT("get_tape_len") int get_tape_len() {return TAPE_LENGTH;}
 WASM_EXPORT("get_soup_width") int get_soup_width() {return SOUP_WIDTH;}
 WASM_EXPORT("get_soup_height") int get_soup_height() {return SOUP_HEIGHT;}
@@ -204,22 +211,22 @@ WASM_EXPORT("prepare_batch") int prepare_batch() {
         }
     }
 
-    for (int i = 0; i < pair_n; i++) {
-        int cell_idx = batch_idx[i*2];
-        Region* region = get_cell_region(cell_idx % SOUP_WIDTH, cell_idx / SOUP_WIDTH);
-        global_temperature *= region->temperature;
-        global_energy *= region->energy_level;
-        global_randomness += region->randomness_factor;
-    }
-    if (pair_n > 0) {
-        global_temperature = custom_powf(global_temperature, 1.0f / pair_n);
-        global_energy = custom_powf(global_energy, 1.0f / pair_n);
-        global_randomness /= pair_n;
-    } else {
-        // Handle the case when pair_n is 0
+    if (use_global_effects) {
         global_temperature = 1.0f;
         global_energy = 1.0f;
         global_randomness = 0.0f;
+        for (int i = 0; i < pair_n; i++) {
+            int cell_idx = batch_idx[i*2];
+            Region* region = get_cell_region(cell_idx % SOUP_WIDTH, cell_idx / SOUP_WIDTH);
+            global_temperature *= region->temperature;
+            global_energy *= region->energy_level;
+            global_randomness += region->randomness_factor;
+        }
+        if (pair_n > 0) {
+            global_temperature = custom_powf(global_temperature, 1.0f / pair_n);
+            global_energy = custom_powf(global_energy, 1.0f / pair_n);
+            global_randomness /= pair_n;
+        }
     }
 
     batch_pair_n[0] = pair_n;
@@ -229,34 +236,17 @@ WASM_EXPORT("prepare_batch") int prepare_batch() {
 WASM_EXPORT("absorb_batch") int absorb_batch() {
     const uint8_t * src = batch;
     const int pair_n = batch_pair_n[0];
-    float global_temperature = 1.0f;
-    float global_energy = 1.0f;
-    float global_randomness = 0.0f;
-
-    for (int i = 0; i < pair_n; i++) {
-        int cell_idx = batch_idx[i*2];
-        Region* region = get_cell_region(cell_idx % SOUP_WIDTH, cell_idx / SOUP_WIDTH);
-        global_temperature *= region->temperature;
-        global_energy *= region->energy_level;
-        global_randomness += region->randomness_factor;
-    }
-    if (pair_n > 0) {
-        global_temperature = custom_powf(global_temperature, 1.0f / pair_n);
-        global_energy = custom_powf(global_energy, 1.0f / pair_n);
-        global_randomness /= pair_n;
-    } else {
-        // Handle the case when pair_n is 0
-        global_temperature = 1.0f;
-        global_energy = 1.0f;
-        global_randomness = 0.0f;
-    }
+    
+    float effect = use_global_effects ? global_temperature * global_energy : 1.0f;
 
     for (int i=0; i<pair_n*2; ++i) {
         const int tape_idx = batch_idx[i];
         uint8_t * dst = soup + tape_idx*TAPE_LENGTH;
         
-        // Use pre-calculated global values instead of per-cell lookup
-        float effect = global_temperature * global_energy;
+        if (!use_global_effects) {
+            Region* region = get_cell_region(tape_idx % SOUP_WIDTH, tape_idx / SOUP_WIDTH);
+            effect = region->temperature * region->energy_level;
+        }
         
         for (int k=0; k<TAPE_LENGTH; ++k,++src,++dst) {
             if (rand64() % 1000 < effect * 1000) {
@@ -265,7 +255,7 @@ WASM_EXPORT("absorb_batch") int absorb_batch() {
         }
         write_count[tape_idx] = batch_write_count[i];
     }
-    return pair_n; // Return the number of pairs processed
+    return pair_n;
 }
 
 WASM_EXPORT("updateCounts")
@@ -385,4 +375,30 @@ void init_exported_region_grid(int size) {
     }
     init_region_grid(size);
     update_mapping();
+}
+
+WASM_EXPORT("toggle_global_effects")
+void toggle_global_effects(bool enable) {
+    use_global_effects = enable;
+}
+
+// Add these exported functions to get global effects
+WASM_EXPORT("get_global_temperature") float get_global_temperature() { return global_temperature; }
+WASM_EXPORT("get_global_energy") float get_global_energy() { return global_energy; }
+WASM_EXPORT("get_global_randomness") float get_global_randomness() { return global_randomness; }
+
+// Add these functions near the other global effect functions
+WASM_EXPORT("set_global_temperature")
+void set_global_temperature(float value) {
+    global_temperature = value;
+}
+
+WASM_EXPORT("set_global_energy")
+void set_global_energy(float value) {
+    global_energy = value;
+}
+
+WASM_EXPORT("set_global_randomness")
+void set_global_randomness(float value) {
+    global_randomness = value;
 }
